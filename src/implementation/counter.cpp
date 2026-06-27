@@ -156,11 +156,11 @@ Float Counter::countJoinTree(const Cnf &cnf) {
 }
 
 Float Counter::getModelCount(const Cnf &cnf) {
-  // Disable CUDD's terminal-merging epsilon (default 1e-12): with small literal
-  // weights the weighted count can legitimately be far below 1e-12, and merging
-  // those terminals into the 0 terminal would round the count down to 0.  Exact
-  // counting wants no terminal merging.  (macOS fork.)
-  mgr.SetEpsilon(0);
+  // Set CUDD's terminal-merging epsilon (default from --ep, 0 = exact).  CUDD's
+  // own default (1e-12) merges ADD terminals within that tolerance into the 0
+  // terminal, rounding legitimately tiny weighted counts down to 0; 0 disables
+  // merging for exact counting down to double-precision underflow.  (macOS fork.)
+  mgr.SetEpsilon(cuddEpsilon);
 
   Int i = cnf.getEmptyClauseIndex();
   if (i != DUMMY_MIN_INT) { // empty clause found
