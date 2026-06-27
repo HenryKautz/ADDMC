@@ -1,8 +1,9 @@
 # ADDMC (Algebraic-Decision-Diagram Model Counter)
 
 > **Fork note.** This is a fork of [vardigroup/ADDMC](https://github.com/vardigroup/ADDMC),
-> modified to compile and run on **macOS (OS X)**. The only changes are to the build —
-> the counter itself is unmodified. See [macOS (OS X) build](#macos-os-x-build) below.
+> modified to compile and run on **macOS (OS X)**. The changes are the build
+> (see [macOS (OS X) build](#macos-os-x-build)) plus one numerical fix
+> (see [Numerical behavior](#numerical-behavior)); the counting algorithm is otherwise unchanged.
 
 --------------------------------------------------------------------------------
 
@@ -62,6 +63,27 @@ Build:
 mkdir -p build && cd build
 cmake -DCMAKE_POLICY_VERSION_MINIMUM=3.5 ..
 make -f Makefile && cp addmc ..
+```
+
+--------------------------------------------------------------------------------
+
+## Numerical behavior
+
+This fork makes one functional change to the counter, in
+`src/implementation/counter.cpp` (`Counter::getModelCount`): it calls
+`mgr.SetEpsilon(0)` to disable CUDD's terminal-merging epsilon (default `1e-12`).
+
+CUDD merges algebraic-decision-diagram terminal values that are within epsilon of
+each other, including merging tiny values into the `0` terminal. With small literal
+weights, a weighted model count can legitimately be far below `1e-12`
+(e.g. `exp(-69) ≈ 1e-30`), and the default epsilon would round such counts down to
+exactly `0`. Setting epsilon to `0` disables that merging so the count is exact down
+to ordinary double-precision underflow. Example, two variables with a single clause
+`x1 ∨ x2` and `W(x1=1)=W(x2=1)=1e-30`:
+
+```
+upstream (epsilon 1e-12):  s wmc 0
+this fork (epsilon 0):     s wmc 2e-30
 ```
 
 --------------------------------------------------------------------------------

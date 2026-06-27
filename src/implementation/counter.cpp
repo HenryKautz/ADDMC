@@ -156,6 +156,12 @@ Float Counter::countJoinTree(const Cnf &cnf) {
 }
 
 Float Counter::getModelCount(const Cnf &cnf) {
+  // Disable CUDD's terminal-merging epsilon (default 1e-12): with small literal
+  // weights the weighted count can legitimately be far below 1e-12, and merging
+  // those terminals into the 0 terminal would round the count down to 0.  Exact
+  // counting wants no terminal merging.  (macOS fork.)
+  mgr.SetEpsilon(0);
+
   Int i = cnf.getEmptyClauseIndex();
   if (i != DUMMY_MIN_INT) { // empty clause found
     showWarning("clause " + to_string(i + 1) + " of cnf is empty (1-indexing)");
