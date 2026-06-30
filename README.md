@@ -30,6 +30,62 @@
 ## Installation
 See `INSTALL.md`
 
+### macOS (OS X) build
+
+ADDMC builds on macOS with Apple clang. The sources were originally written for
+Linux/g++; three changes were needed to compile on macOS, all confined to the build:
+
+1. **`CMakeLists.txt` — no `-static` on macOS.** macOS has no static system
+   libraries, so Apple's linker rejects fully static executables. The `-static`
+   flag is now applied only on non-Apple platforms (`IF(APPLE)` branch).
+2. **`CMakeLists.txt` — `-O3` instead of `-Ofast` on macOS.** `-Ofast` enables
+   `-ffast-math`, which makes ADDMC's `-infinity` log-space sentinel undefined
+   behavior under clang. The Apple branch uses `-O3` to keep the counts correct.
+3. **`src/interface/util.hpp` — add `#include <sstream>`.** macOS clang's libc++
+   no longer transitively includes `<sstream>` (used by `formula.cpp` and
+   `join.cpp`); libstdc++ on Linux did, which is why upstream never needed it.
+
+Two more things are environment-specific rather than source changes:
+
+- **CMake 4.x** removed compatibility with the `CMAKE_MINIMUM_REQUIRED(VERSION
+  2.8.12)` declared here. Configure with
+  `cmake -DCMAKE_POLICY_VERSION_MINIMUM=3.5 ..` (or use an older CMake).
+- The bundled **CUDD 3.0.0** builds from `lib.tar` via its own `./configure`
+  (driven by the CMake custom command); no changes are required there.
+
+Build:
+```bash
+mkdir -p build && cd build
+cmake -DCMAKE_POLICY_VERSION_MINIMUM=3.5 ..
+make -f Makefile && cp addmc ..
+```
+
+--------------------------------------------------------------------------------
+
+## Numerical behavior
+
+ADDMC exposes CUDD's terminal-merging epsilon as an option.
+`Counter::getModelCount` (`src/implementation/counter.cpp`) calls
+`mgr.SetEpsilon(cuddEpsilon)`, where `cuddEpsilon` comes from the **`--ep`**
+command-line option and **defaults to `0`** (exact), rather than CUDD's built-in
+default of `1e-12`.
+
+CUDD merges algebraic-decision-diagram terminal values that are within epsilon of
+each other, including merging tiny values into the `0` terminal. With small literal
+weights, a weighted model count can legitimately be far below `1e-12`
+(e.g. `exp(-69) ≈ 1e-30`), and CUDD's default epsilon would round such counts down to
+exactly `0`. With epsilon `0` that merging is disabled, so the count is exact down to
+ordinary double-precision underflow. Example, two variables with a single clause
+`x1 ∨ x2` and `W(x1=1)=W(x2=1)=1e-30`:
+
+```
+--ep 1e-12 (CUDD's built-in default): s wmc 0
+--ep 0     (ADDMC default):           s wmc 2e-30
+```
+
+Pass `--ep <e>` to trade exactness for the speed/memory of more terminal merging
+(a larger `e` merges more nodes); `--ep 0` keeps full double precision.
+
 --------------------------------------------------------------------------------
 
 ## Examples
